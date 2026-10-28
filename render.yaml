@@ -1,0 +1,53 @@
+# Render Blueprint: in the Render Dashboard choose New -> Blueprint and select
+# this repository. It creates a free PostgreSQL database and one free web
+# service that serves both the API and the dashboard on a single URL.
+# Migrations run before every start (they are idempotent). Free services sleep
+# when idle, so the first request after a pause can take about a minute.
+databases:
+  - name: datapulse-automotive-db
+    databaseName: datapulse
+    user: datapulse_user
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: datapulse-automotive
+    runtime: node
+    plan: free
+    # Must match the database region so the internal hostname resolves.
+    region: frankfurt
+    # Build tools are devDependencies; NODE_ENV=production would skip them.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run db:migrate && npm run server:start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: SERVE_FRONTEND
+        value: "true"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DB_HOST
+        fromDatabase:
+          name: datapulse-automotive-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: datapulse-automotive-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: datapulse-automotive-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: datapulse-automotive-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: datapulse-automotive-db
+          property: password

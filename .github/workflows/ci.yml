@@ -1,0 +1,68 @@
+name: DataPulse CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          # Test databases must end in "_test" (see setup-test-db.ts).
+          POSTGRES_DB: datapulse_test
+          POSTGRES_USER: datapulse_user
+          POSTGRES_PASSWORD: ci_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U datapulse_user -d datapulse_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: datapulse_test
+      DB_USER: datapulse_user
+      DB_PASSWORD: ci_test_password
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply database migrations
+        env:
+          PGPASSWORD: ci_test_password
+        run: |
+          for migration in server/src/migrations/*.sql; do
+            echo "Applying $migration"
+            psql -v ON_ERROR_STOP=1 -h localhost -U datapulse_user -d datapulse_test -f "$migration"
+          done
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Type-check frontend and server
+        run: npm run typecheck
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build production app
+        run: npm run build
