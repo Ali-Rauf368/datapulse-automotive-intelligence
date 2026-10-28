@@ -11,7 +11,7 @@ DataPulse is a full-stack automotive inventory and analytics application designe
 
 It combines a React dashboard with a Node.js API and PostgreSQL-backed data storage. The application provides a foundation for managing vehicle inventory, tracking vehicle status, and expanding sales and service reporting.
 
-**Repository:** https://github.com/Ali-Rauf368/datapulse
+
 
 ---
 
