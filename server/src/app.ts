@@ -12,6 +12,9 @@ import { serviceRouter } from './routes/service.ts'
 import { analyticsRouter, operationsRouter } from './routes/analytics.ts'
 import { auditRouter, usersRouter } from './routes/users.ts'
 import { docsRouter } from './routes/docs.ts'
+import { eventsRouter } from './routes/events.ts'
+import { requestLog } from './lib/request-log.ts'
+import { publishChanges } from './lib/audit.ts'
 
 export const app = express()
 
@@ -43,8 +46,10 @@ app.use((_req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
   next()
 })
-app.use(cors({ origin: allowedOrigins }))
+app.use(requestLog)
+app.use(cors({ origin: allowedOrigins, exposedHeaders: ['X-Request-Id'] }))
 app.use(express.json({ limit: '1mb' }))
+app.use(publishChanges)
 
 app.use('/api/health', healthRouter)
 app.use('/api/auth', authRouter)
@@ -56,6 +61,7 @@ app.use('/api/operations', operationsRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/audit', auditRouter)
 app.use('/api/docs', docsRouter)
+app.use('/api/events', eventsRouter)
 
 // Single-service deployments (the Render blueprint sets SERVE_FRONTEND=true)
 // serve the built dashboard from dist/ on the same origin as the API.
@@ -108,7 +114,7 @@ app.use(
       return
     }
 
-    logError('Unhandled request error:', error)
-    res.status(500).json({ error: 'Internal server error' })
+    logError(`Unhandled request error [request ${res.req?.id ?? 'unknown'}]:`, error)
+    res.status(500).json({ error: 'Internal server error', requestId: res.req?.id })
   },
 )

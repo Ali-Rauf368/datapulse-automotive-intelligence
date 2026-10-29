@@ -37,7 +37,11 @@ export async function readJson<T>(response: Response): Promise<T> {
       data && typeof data === 'object' && 'error' in data && typeof data.error === 'string'
         ? data.error
         : null
-    throw new Error(message || `The API responded with HTTP ${response.status}.`)
+    // Server errors carry a reference that matches the API's log line.
+    const reference = response.status >= 500 ? response.headers.get('X-Request-Id') : null
+    throw new Error(
+      `${message || `The API responded with HTTP ${response.status}.`}${reference ? ` (reference ${reference.slice(0, 8)})` : ''}`,
+    )
   }
 
   if (data === null) {

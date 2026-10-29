@@ -62,6 +62,7 @@ type Props = {
   isAdmin: boolean
   apiFetch: ApiFetch
   reload: () => Promise<void>
+  onOpenHistory: (id: Id) => void
 }
 
 export function InventorySection({
@@ -78,6 +79,7 @@ export function InventorySection({
   isAdmin,
   apiFetch,
   reload,
+  onOpenHistory,
 }: Props) {
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'id', direction: 'asc' })
   const [page, setPage] = useState(1)
@@ -500,7 +502,14 @@ export function InventorySection({
                           <CarFront size={20} />
                         </div>
                         <div>
-                          <p className="font-medium text-slate-900">{vehicle.make} {vehicle.model}</p>
+                          <button
+                            type="button"
+                            onClick={() => onOpenHistory(vehicle.id)}
+                            title="Show vehicle history"
+                            className="text-left font-medium text-slate-900 hover:text-cyan-700 hover:underline"
+                          >
+                            {vehicle.make} {vehicle.model}
+                          </button>
                           <p className="mt-1 font-mono text-xs text-slate-500">{vehicle.vin}</p>
                         </div>
                       </div>

@@ -10,10 +10,11 @@ type Props = {
   health: Health
   loading: boolean
   anyPanelError: boolean
+  live: boolean
   onSignOut: () => void
 }
 
-export function Sidebar({ user, activeSection, onNavigate, health, loading, anyPanelError, onSignOut }: Props) {
+export function Sidebar({ user, activeSection, onNavigate, health, loading, anyPanelError, live, onSignOut }: Props) {
   const displayName = displayNameOf(user)
   const status =
     health.api === 'down'
@@ -64,7 +65,10 @@ export function Sidebar({ user, activeSection, onNavigate, health, loading, anyP
           <span className={`h-2 w-2 rounded-full ${status.dot}`} />
           {status.label}
         </div>
-        <p className="text-xs leading-5 text-slate-400">Signed-in API session.</p>
+        <p className="flex items-center gap-1.5 text-xs leading-5 text-slate-400">
+          <span className={`h-1.5 w-1.5 rounded-full ${live ? 'animate-pulse bg-cyan-400' : 'bg-slate-600'}`} />
+          {live ? 'Live updates on' : 'Live updates reconnecting…'}
+        </p>
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-800 p-4">

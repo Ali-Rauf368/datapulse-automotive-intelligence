@@ -7,7 +7,7 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 ![React](https://img.shields.io/badge/React-19-61dafb)
 ![Express](https://img.shields.io/badge/Express-5-000000)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169e1)
-![Tests](https://img.shields.io/badge/tests-108%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-115%20passing-2ea44f)
 ![Docker](https://img.shields.io/badge/docker-compose-2496ed)
 ![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6ba539)
 
@@ -17,12 +17,21 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 
 ![Business insights](docs/images/insights.png)
 
+| Live updates | Vehicle history |
+| --- | --- |
+| ![Live update notification](docs/images/live-updates.png) | ![Vehicle history timeline](docs/images/vehicle-history.png) |
+
 ## Features
+
+**Real-time collaboration**
+- Every open dashboard updates the moment anyone records a sale, changes a service job or edits a vehicle (Server-Sent Events), with a notification saying who did it
+- Notifications are sent only after the change has committed, so a rolled-back change is never announced
 
 **Inventory**
 - Search by VIN, make or model; filter by status; sortable columns; pagination
 - Add and edit vehicles with VIN validation (17 characters, no I/O/Q)
 - CSV export of the current view (UTF-8, spreadsheet-safe)
+- Vehicle history: click any vehicle for a timeline of when it was added, edited, serviced and sold, and by whom
 
 **Sales and service**
 - Record a sale: the vehicle becomes *Sold* in the same transaction, and a vehicle can never be sold twice
@@ -45,6 +54,7 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 - Roles: Viewer (read), Operator (sales, service, inventory), Admin (plus delete and ingestion logs)
 - Rate limiting on sign-in and sign-up, security headers, JSON errors without stack traces
 - Live API and database health with response time
+- Request IDs on every response (also shown in error messages) and one structured JSON log line per request with status and duration
 - Interactive OpenAPI 3.1 documentation (Swagger UI) at `/api/docs`
 - Docker image and Compose file for a one-command local stack
 
@@ -71,7 +81,7 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, Recharts, lucide icons |
 | Backend | Node.js 24, Express 5, TypeScript (strict), JWT, bcrypt |
 | Database | PostgreSQL 16 with SQL migrations |
-| Testing | Vitest + Supertest (108 tests), disposable PostgreSQL per run |
+| Testing | Vitest + Supertest (115 tests), disposable PostgreSQL per run |
 | API docs | OpenAPI 3.1, Swagger UI |
 | Delivery | Docker, GitHub Actions CI, Render Blueprint deployment |
 
@@ -85,7 +95,8 @@ src/                     React dashboard
 server/src/
   app.ts                 Middleware and route wiring
   routes/                auth, health, vehicles, sales, service, analytics, users, docs
-  lib/                   Transactions, audit log, vehicle status rules, rate limiting
+  lib/                   Transactions, audit log, live events, request logging,
+                         vehicle status rules, rate limiting
   openapi.ts             OpenAPI 3.1 description
   auth/                  JWT sessions, roles, machine credentials
   migrations/            SQL schema (000–003)
@@ -160,6 +171,8 @@ Errors are always JSON (`{"error": "..."}`). "Any credential" means a signed-in 
 | `GET /api/users`, `PATCH /api/users/:id` | Admin | List users, change role or access |
 | `GET /api/audit?entity=&limit=` | Admin | Activity log |
 | `GET /api/operations/nifi-logs` | Admin | Recent ingestion outcomes |
+| `GET /api/vehicles/:id/history` | Any credential | Vehicle timeline |
+| `GET /api/events` | Signed-in user | Live change stream (Server-Sent Events) |
 | `GET /api/docs` | Public | Interactive API documentation |
 
 ## Engineering notes
@@ -167,6 +180,8 @@ Errors are always JSON (`{"error": "..."}`). "Any credential" means a signed-in 
 - **Consistency under concurrency:** sales and service writes lock the vehicle row inside a transaction, so two simultaneous requests cannot sell the same car twice.
 - **Status follows history:** a vehicle's status is derived from its sales and service records, and both the UI and the API enforce it.
 - **Safe tests:** the suite refuses any database whose name does not end in `_test`, signs tokens with its own random secret and cleans up everything it creates. `test:isolated` runs it on a throwaway PostgreSQL cluster.
+- **Real-time without polling:** changes are queued during the request and broadcast over Server-Sent Events only after a successful response, i.e. after commit. A single instance fans out in memory; scaling out would move the channel to PostgreSQL LISTEN/NOTIFY.
+- **Traceable:** a request ID ties a user's error message to exactly one structured log line.
 - **Auditable by design:** audit entries are written inside the same transaction as the change they describe, so the log never claims a change that was rolled back.
 - **Resilient UI:** each dashboard panel loads independently, so one failing request shows a retry in that panel instead of breaking the page.
 

@@ -251,3 +251,12 @@ Open `/api/docs` (for example http://localhost:3000/api/docs) for interactive do
 
 ### Running with Docker
 With Docker installed, `JWT_SECRET=$(openssl rand -hex 32) docker compose up --build` starts PostgreSQL and DataPulse together at http://localhost:3000. Create the first admin with `docker compose exec app npm run setup:admin`.
+
+### Live updates
+DataPulse updates itself: when a colleague records a sale, changes a service job or edits a vehicle, your figures and lists refresh automatically and a small notification at the bottom right says what happened and who did it. **Live updates on** in the sidebar shows the connection is active.
+
+### Vehicle history
+Click a vehicle's name in the inventory to open its history: when it was added, every edit, its service jobs and its sale, each with the date and the person responsible. Press **Esc** or click outside to close it.
+
+### Error references
+If something goes wrong on the server, the message ends with a short reference such as *(reference 6215cefc)*. Pass it to your administrator: it identifies the exact request in the server logs.

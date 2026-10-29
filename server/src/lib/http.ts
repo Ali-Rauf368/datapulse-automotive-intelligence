@@ -44,8 +44,9 @@ export function sendError(res: Response, error: unknown, failure: string): void 
     return
   }
 
-  logError(`${failure}:`, error)
-  res.status(500).json({ error: failure })
+  const requestId = res.req?.id
+  logError(`${failure} [request ${requestId ?? 'unknown'}]:`, error)
+  res.status(500).json({ error: failure, requestId })
 }
 
 // Runs `work` in a transaction on a dedicated client: commits on success,

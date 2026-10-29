@@ -156,6 +156,96 @@ vehiclesRouter.get('/:id', async (req, res) => {
   }
 })
 
+type TimelineEvent = {
+  at: string
+  kind: 'added' | 'edited' | 'sold' | 'service' | 'deleted'
+  title: string
+  actor: string | null
+}
+
+// The vehicle's full story, newest first: audit entries for the vehicle, its
+// sale and its service jobs. History recorded before the audit log existed
+// (or by the demo seed) is reconstructed from the sales and service tables.
+vehiclesRouter.get('/:id/history', async (req, res) => {
+  if (!isValidId(req.params.id)) {
+    res.status(400).json({ error: 'Invalid vehicle ID' })
+    return
+  }
+
+  const id = Number(req.params.id)
+
+  try {
+    const vehicle = await pool.query(`SELECT ${VEHICLE_COLUMNS} FROM vehicles WHERE id = $1`, [id])
+
+    if (vehicle.rows.length === 0) {
+      res.status(404).json({ error: 'Vehicle not found' })
+      return
+    }
+
+    const [entries, sales, jobs] = await Promise.all([
+      pool.query(
+        `SELECT a.action, a.summary, a.created_at, a.actor_email, a.actor_kind, a.entity, a.entity_id
+         FROM audit_log a
+         WHERE (a.entity = 'vehicle' AND a.entity_id = $1)
+            OR (a.entity = 'sale' AND a.entity_id IN (SELECT id FROM sales_events WHERE vehicle_id = $1))
+            OR (a.entity = 'service_job' AND a.entity_id IN (SELECT id FROM service_events WHERE vehicle_id = $1))`,
+        [id],
+      ),
+      pool.query('SELECT id, amount, sold_at FROM sales_events WHERE vehicle_id = $1', [id]),
+      pool.query(
+        'SELECT id, description, status, opened_at, completed_at FROM service_events WHERE vehicle_id = $1',
+        [id],
+      ),
+    ])
+
+    const actorOf = (row: { actor_kind: string; actor_email: string | null }) =>
+      row.actor_kind === 'machine' ? 'NiFi' : row.actor_email
+    const kindOf = (action: string): TimelineEvent['kind'] =>
+      action.startsWith('sale') ? 'sold'
+        : action.startsWith('service') ? 'service'
+          : action.endsWith('updated') ? 'edited'
+            : action.endsWith('deleted') ? 'deleted'
+              : 'added'
+
+    const events: TimelineEvent[] = entries.rows.map((row) => ({
+      at: row.created_at,
+      kind: kindOf(row.action),
+      title: row.summary,
+      actor: actorOf(row),
+    }))
+
+    const audited = (entity: string, entityId: unknown) =>
+      entries.rows.some((row) => row.entity === entity && String(row.entity_id) === String(entityId))
+
+    if (!entries.rows.some((row) => row.entity === 'vehicle' && row.action !== 'vehicle.updated')) {
+      const v = vehicle.rows[0]
+      events.push({ at: v.created_at, kind: 'added', title: `Added ${v.make} ${v.model} (${v.vin})`, actor: null })
+    }
+
+    for (const sale of sales.rows) {
+      if (!audited('sale', sale.id)) {
+        events.push({ at: sale.sold_at, kind: 'sold', title: `Sold for EUR ${Number(sale.amount).toFixed(2)}`, actor: null })
+      }
+    }
+
+    for (const job of jobs.rows) {
+      if (audited('service_job', job.id)) continue
+      events.push({ at: job.opened_at, kind: 'service', title: `Service opened: ${job.description}`, actor: null })
+      if (job.completed_at) {
+        events.push({ at: job.completed_at, kind: 'service', title: `Service completed: ${job.description}`, actor: null })
+      } else if (job.status === 'cancelled') {
+        events.push({ at: job.opened_at, kind: 'service', title: `Service cancelled: ${job.description}`, actor: null })
+      }
+    }
+
+    events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
+
+    res.json({ vehicle: vehicle.rows[0], events })
+  } catch (error) {
+    sendError(res, error, 'Failed to fetch vehicle history')
+  }
+})
+
 // Create vehicles: admin/operator users and operator machine credentials.
 // The outcome logger runs after authentication and authorization.
 vehiclesRouter.post(

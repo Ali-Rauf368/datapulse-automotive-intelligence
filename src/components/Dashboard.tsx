@@ -12,7 +12,10 @@ import { AnalyticsSection } from './AnalyticsSection.tsx'
 import { AccountSections, IngestionPanel, SystemStatusSection } from './OperationsSections.tsx'
 import { InsightsSection } from './InsightsSection.tsx'
 import { AuditLogSection, UserManagement } from './AdminSections.tsx'
-import type { User } from '../types.ts'
+import { useLiveUpdates } from '../hooks/useLiveUpdates.ts'
+import { LiveNotifications } from './LiveNotifications.tsx'
+import { VehicleHistoryDrawer } from './VehicleHistoryDrawer.tsx'
+import type { Id, User } from '../types.ts'
 
 const sectionHrefs = navigation.map((item) => item.href)
 
@@ -43,6 +46,9 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
   const { apiGet, loadData } = data
 
   const reload = useCallback(() => loadData(), [loadData])
+  const live = useLiveUpdates({ token, currentEmail: user.email, onChange: reload })
+  const [historyId, setHistoryId] = useState<Id | null>(null)
+  const closeHistory = useCallback(() => setHistoryId(null), [])
 
   function refreshAll() {
     void loadData()
@@ -79,8 +85,20 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
         health={health}
         loading={data.loading}
         anyPanelError={anyPanelError}
+        live={live.connected}
         onSignOut={() => onSignOut()}
       />
+
+      <LiveNotifications notifications={live.notifications} onDismiss={live.dismiss} />
+
+      {historyId !== null && (
+        <VehicleHistoryDrawer
+          vehicleId={historyId}
+          apiGet={apiGet}
+          refreshKey={data.lastUpdated}
+          onClose={closeHistory}
+        />
+      )}
 
       <main id="overview" className="min-w-0 flex-1 scroll-mt-6 p-5 md:p-8">
         <header className="mb-8 flex items-center justify-between gap-4">
@@ -124,6 +142,7 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
           isAdmin={isAdmin}
           apiFetch={data.apiFetch}
           reload={reload}
+          onOpenHistory={setHistoryId}
         />
 
         <SalesServiceSection
