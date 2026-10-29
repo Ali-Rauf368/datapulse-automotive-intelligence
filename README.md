@@ -14,15 +14,22 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 
 **Live demo:** https://datapulse-automotive.onrender.com (free hosting; the first visit can take up to a minute while the server wakes up)
 
-![DataPulse dashboard](docs/images/dashboard.png)
+| Light | Dark |
+| --- | --- |
+| ![DataPulse dashboard, light mode](docs/images/dashboard.png) | ![DataPulse dashboard, dark mode](docs/images/dashboard-dark.png) |
 
 ![Business insights](docs/images/insights.png)
 
-| Live updates | Vehicle history |
-| --- | --- |
-| ![Live update notification](docs/images/live-updates.png) | ![Vehicle history timeline](docs/images/vehicle-history.png) |
+| Live updates | Vehicle history | Command palette |
+| --- | --- | --- |
+| ![Live update notification](docs/images/live-updates.png) | ![Vehicle history timeline](docs/images/vehicle-history.png) | ![Command palette](docs/images/command-palette.png) |
 
 ## Features
+
+**Experience**
+- Personal overview with greeting, revenue, vehicle count and open service jobs
+- Light and dark themes, remembered per browser
+- Command palette (Ctrl/Cmd + K): jump to any section, open any vehicle's history or run an action from the keyboard
 
 **Real-time collaboration**
 - Every open dashboard updates the moment anyone records a sale, changes a service job or edits a vehicle (Server-Sent Events), with a notification saying who did it

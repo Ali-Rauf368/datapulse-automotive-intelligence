@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { RefreshCw } from 'lucide-react'
+import { Moon, RefreshCw, Search, Sun } from 'lucide-react'
+import { CommandPalette } from './CommandPalette.tsx'
+import { displayNameOf, formatMoney } from '../lib/format.ts'
 import { useDashboardData } from '../hooks/useDashboardData.ts'
 import { useHealth } from '../hooks/useHealth.ts'
 import { useScrollSpy } from '../hooks/useScrollSpy.ts'
@@ -49,6 +51,37 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
   const live = useLiveUpdates({ token, currentEmail: user.email, onChange: reload })
   const [historyId, setHistoryId] = useState<Id | null>(null)
   const closeHistory = useCallback(() => setHistoryId(null), [])
+  const [dark, setDark] = useState(readStoredTheme)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [greeting] = useState(greetingForNow)
+
+  const toggleTheme = useCallback(() => {
+    setDark((current) => {
+      try {
+        localStorage.setItem(THEME_KEY, current ? 'light' : 'dark')
+      } catch {
+        // Storage can be unavailable (private mode); the toggle still works.
+      }
+      return !current
+    })
+  }, [])
+
+  const navigateTo = useCallback((href: string) => {
+    setActiveSection(href)
+    document.querySelector(href)?.scrollIntoView({ behavior: 'smooth' })
+  }, [setActiveSection])
+
+  // Ctrl/Cmd + K opens the command palette from anywhere.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen((open) => !open)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   function refreshAll() {
     void loadData()
@@ -75,9 +108,11 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
   }, [apiGet, onUserChange])
 
   const anyPanelError = Object.values(data.errors).some(Boolean)
+  const firstName = (displayNameOf(user) ?? user.email.split('@')[0]).split(' ')[0]
+  const openJobs = data.service.open + data.service.in_progress
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 md:flex">
+    <div className="min-h-screen bg-slate-950 md:flex">
       <Sidebar
         user={user}
         activeSection={activeSection}
@@ -86,6 +121,23 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
         loading={data.loading}
         anyPanelError={anyPanelError}
         live={live.connected}
+        dark={dark}
+        onToggleTheme={toggleTheme}
+        onOpenPalette={() => setPaletteOpen(true)}
+        onSignOut={() => onSignOut()}
+      />
+
+      <div className={`min-h-screen min-w-0 flex-1 bg-slate-50 text-slate-900 ${dark ? 'theme-dark' : ''}`}>
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        vehicles={data.allVehicles}
+        role={user.role}
+        dark={dark}
+        onNavigate={navigateTo}
+        onOpenVehicle={setHistoryId}
+        onRefresh={refreshAll}
+        onToggleTheme={toggleTheme}
         onSignOut={() => onSignOut()}
       />
 
@@ -100,24 +152,63 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
         />
       )}
 
-      <main id="overview" className="min-w-0 flex-1 scroll-mt-6 p-5 md:p-8">
-        <header className="mb-8 flex items-center justify-between gap-4">
-          <div>
-            <p className="mb-1 text-sm text-slate-500">Workspace / Overview</p>
-            <h2 className="text-2xl font-bold tracking-tight md:text-3xl">Business overview</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Monitor vehicle inventory, sales, service and data operations.
-            </p>
+      <main id="overview" className="min-w-0 scroll-mt-6 p-5 md:p-8">
+        <header className="relative mb-8 overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-sm md:p-7">
+          <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-cyan-100 blur-3xl" />
+          <div className="relative flex flex-wrap items-start justify-between gap-5">
+            <div>
+              <p className="text-sm text-slate-500">{greeting.date}</p>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight md:text-3xl">
+                {greeting.text}, {firstName}
+              </h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Here is your dealership today: inventory, sales, service and data operations.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-x-8 gap-y-3 text-sm">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Revenue</p>
+                  <p className="text-lg font-semibold">{formatMoney(data.sales.totalRevenue)}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Vehicles</p>
+                  <p className="text-lg font-semibold">{data.stats.total}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Open service jobs</p>
+                  <p className="text-lg font-semibold">{openJobs}</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPaletteOpen(true)}
+                className="hidden items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-500 shadow-sm transition-colors hover:bg-slate-50 sm:inline-flex"
+              >
+                <Search size={16} />
+                Search anything
+                <kbd className="rounded border border-slate-200 px-1.5 text-[11px]">Ctrl K</kbd>
+              </button>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+                title={dark ? 'Light mode' : 'Dark mode'}
+                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:bg-slate-100"
+              >
+                {dark ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+              <button
+                type="button"
+                onClick={refreshAll}
+                aria-label="Refresh dashboard data"
+                title="Refresh dashboard data"
+                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:bg-slate-100"
+              >
+                <RefreshCw size={20} className={data.loading ? 'animate-spin' : ''} />
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={refreshAll}
-            aria-label="Refresh dashboard data"
-            title="Refresh dashboard data"
-            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-colors hover:bg-slate-100"
-          >
-            <RefreshCw size={20} className={data.loading ? 'animate-spin' : ''} />
-          </button>
         </header>
 
         <KpiSection
@@ -195,6 +286,26 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
           </span>
         </footer>
       </main>
+      </div>
     </div>
   )
+}
+
+const THEME_KEY = 'datapulse_theme'
+
+function readStoredTheme(): boolean {
+  try {
+    return localStorage.getItem(THEME_KEY) === 'dark'
+  } catch {
+    return false
+  }
+}
+
+function greetingForNow() {
+  const now = new Date()
+  const hour = now.getHours()
+  return {
+    text: hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening',
+    date: now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+  }
 }

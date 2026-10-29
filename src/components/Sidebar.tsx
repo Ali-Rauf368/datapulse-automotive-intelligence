@@ -1,4 +1,4 @@
-import { Activity, LogOut } from 'lucide-react'
+import { Activity, LogOut, Moon, Search, Sun } from 'lucide-react'
 import { navigation } from '../constants.ts'
 import { displayNameOf } from '../lib/format.ts'
 import type { Health, User } from '../types.ts'
@@ -11,10 +11,25 @@ type Props = {
   loading: boolean
   anyPanelError: boolean
   live: boolean
+  dark: boolean
+  onToggleTheme: () => void
+  onOpenPalette: () => void
   onSignOut: () => void
 }
 
-export function Sidebar({ user, activeSection, onNavigate, health, loading, anyPanelError, live, onSignOut }: Props) {
+export function Sidebar({
+  user,
+  activeSection,
+  onNavigate,
+  health,
+  loading,
+  anyPanelError,
+  live,
+  dark,
+  onToggleTheme,
+  onOpenPalette,
+  onSignOut,
+}: Props) {
   const displayName = displayNameOf(user)
   const status =
     health.api === 'down'
@@ -36,6 +51,16 @@ export function Sidebar({ user, activeSection, onNavigate, health, loading, anyP
           <p className="text-xs text-slate-400">Automotive Intelligence Platform</p>
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={onOpenPalette}
+        className="mb-6 flex w-full items-center gap-2 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-400 transition-colors hover:border-slate-700 hover:text-slate-200"
+      >
+        <Search size={15} />
+        <span className="flex-1 text-left">Search…</span>
+        <kbd className="rounded border border-slate-700 px-1.5 text-[10px]">Ctrl K</kbd>
+      </button>
 
       <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Workspace</p>
 
@@ -79,13 +104,23 @@ export function Sidebar({ user, activeSection, onNavigate, health, loading, anyP
         <p className="mt-1 text-xs text-cyan-300">
           {user.role.charAt(0).toUpperCase() + user.role.slice(1)} role
         </p>
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="mt-4 inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"
-        >
-          <LogOut size={16} /> Sign out
-        </button>
+        <div className="mt-4 flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"
+          >
+            <LogOut size={16} /> Sign out
+          </button>
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
+          >
+            {dark ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+        </div>
       </div>
     </aside>
   )

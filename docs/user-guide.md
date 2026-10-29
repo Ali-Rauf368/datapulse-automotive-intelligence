@@ -260,3 +260,9 @@ Click a vehicle's name in the inventory to open its history: when it was added, 
 
 ### Error references
 If something goes wrong on the server, the message ends with a short reference such as *(reference 6215cefc)*. Pass it to your administrator: it identifies the exact request in the server logs.
+
+### Dark mode
+Click the moon icon (top right, or next to **Sign out**) to switch to dark mode; the sun icon switches back. Your choice is remembered in this browser.
+
+### Command palette
+Press **Ctrl + K** (or click **Search anything**) and start typing: jump to any section, type a make, model or VIN to open that vehicle's history, or run actions such as refresh, switch theme or sign out. Use the arrow keys and **Enter**.

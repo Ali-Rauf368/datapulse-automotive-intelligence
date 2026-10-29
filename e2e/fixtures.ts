@@ -15,4 +15,4 @@ export async function signIn(page: Page, email: string, password = PASSWORD) {
 export const kpi = (page: Page, label: string) =>
   page.getByRole('region', { name: 'Key performance indicators' })
     .locator('article', { hasText: label })
-    .locator('p.text-2xl')
+    .locator('p.text-3xl')

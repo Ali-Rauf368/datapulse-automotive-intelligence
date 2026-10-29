@@ -4,3 +4,57 @@
 html {
   scroll-behavior: smooth;
 }
+
+/*
+ * Dark theme. Tailwind exposes every colour as a CSS variable, so the theme
+ * re-maps the neutral scale (inverted) and the light status tints (as
+ * translucent washes) for the content area. The sidebar is dark already and
+ * keeps its own palette.
+ */
+.theme-dark {
+  color-scheme: dark;
+  --color-white: #111a2e;
+  --color-slate-50: #0b1222;
+  --color-slate-100: #1c2740;
+  --color-slate-200: #263451;
+  --color-slate-300: #34456a;
+  --color-slate-400: #6b7a99;
+  --color-slate-500: #98a6c2;
+  --color-slate-600: #c3cde0;
+  --color-slate-700: #dbe2ef;
+  --color-slate-800: #e8edf6;
+  --color-slate-900: #f3f6fb;
+
+  --color-cyan-50: rgb(34 211 238 / 0.12);
+  --color-cyan-100: rgb(34 211 238 / 0.2);
+  --color-cyan-200: rgb(34 211 238 / 0.3);
+  --color-cyan-700: #67e8f9;
+  --color-cyan-800: #a5f3fc;
+  --color-cyan-900: #cffafe;
+  --color-emerald-50: rgb(52 211 153 / 0.12);
+  --color-emerald-200: rgb(52 211 153 / 0.3);
+  --color-emerald-700: #6ee7b7;
+  --color-amber-50: rgb(251 191 36 / 0.12);
+  --color-amber-200: rgb(251 191 36 / 0.3);
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+  --color-rose-50: rgb(251 113 133 / 0.12);
+  --color-rose-100: rgb(251 113 133 / 0.2);
+  --color-rose-200: rgb(251 113 133 / 0.3);
+  --color-rose-700: #fda4af;
+  --color-violet-50: rgb(167 139 250 / 0.14);
+  --color-violet-700: #c4b5fd;
+}
+
+/* Recharts draws with SVG attributes, which cannot read CSS variables. */
+.theme-dark .recharts-cartesian-grid line {
+  stroke: #263451;
+}
+.theme-dark .recharts-cartesian-axis-tick text {
+  fill: #98a6c2;
+}
+.theme-dark .recharts-default-tooltip {
+  background-color: #111a2e !important;
+  border-color: #263451 !important;
+}
