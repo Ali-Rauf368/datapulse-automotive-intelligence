@@ -1,4 +1,4 @@
-# DataPulse — separate deployment with Sales & Service Management
+# Deploying DataPulse
 
 This copy of DataPulse adds sales and service workflows and self-service signup. Deploy it to its own GitHub repository and its own Render services and database, so the existing DataPulse deployment is not affected.
 

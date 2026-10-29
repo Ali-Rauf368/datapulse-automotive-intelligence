@@ -338,7 +338,7 @@ A successful frontend build does not, by itself, prove that a production deploym
 
 ### Deploying to Render
 
-`render.yaml` is a Render Blueprint: in the Render Dashboard choose **New → Blueprint** and select this repository. It creates a free PostgreSQL 16 database and one free web service that builds the dashboard, runs `npm run db:migrate` on every start, and serves the API and the dashboard on one URL (`SERVE_FRONTEND=true`). Render generates `JWT_SECRET` and supplies the database credentials. Create the first administrator from your machine with the database's External Database URL: `DATABASE_URL="<url>" npm run setup:admin`. Step-by-step instructions are in [README-NEW-DEPLOYMENT.md](README-NEW-DEPLOYMENT.md).
+`render.yaml` is a Render Blueprint: in the Render Dashboard choose **New → Blueprint** and select this repository. It creates a free PostgreSQL 16 database and one free web service that builds the dashboard, runs `npm run db:migrate` on every start, and serves the API and the dashboard on one URL (`SERVE_FRONTEND=true`). Render generates `JWT_SECRET` and supplies the database credentials. Create the first administrator from your machine with the database's External Database URL: `DATABASE_URL="<url>" npm run setup:admin`. Step-by-step instructions are in [docs/deployment.md](docs/deployment.md).
 
 ---
 
