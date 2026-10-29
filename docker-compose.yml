@@ -1,0 +1,35 @@
+# Full stack in one command:  JWT_SECRET=$(openssl rand -hex 32) docker compose up --build
+# Then open http://localhost:3000 and create the first admin with:
+#   docker compose exec app npm run setup:admin
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: datapulse
+      POSTGRES_USER: datapulse_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-datapulse_local}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U datapulse_user -d datapulse"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: datapulse
+      DB_USER: datapulse_user
+      DB_PASSWORD: ${DB_PASSWORD:-datapulse_local}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET (at least 32 characters)}
+    ports:
+      - "3000:3000"
+
+volumes:
+  db-data:

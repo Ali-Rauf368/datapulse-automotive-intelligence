@@ -232,3 +232,22 @@ npm run test:isolated
 ## 10. Online version (Render)
 
 The project is on GitHub at https://github.com/Ali-Rauf368/datapulse-automotive-intelligence. Render builds it automatically from the `render.yaml` Blueprint (New → Blueprint in the Render dashboard). Every new push to `main` redeploys the site. Free Render services sleep when idle, so open the site a minute before you need it.
+
+---
+
+## 11. Advanced features
+
+### Business insights (all roles)
+In **Insights**, choose **30 days**, **90 days**, **12 months** or **All time** to see total revenue, vehicles sold, the average number of days a vehicle was in stock before it sold, the average service turnaround in hours, revenue by month and the top five makes by revenue.
+
+### Managing users (Admin)
+In **Users & roles → Manage users**, change anyone's role with the role menu, or click **Deactivate** to block an account immediately (**Reactivate** restores it). You cannot change your own account, and DataPulse always keeps at least one active administrator.
+
+### Activity log (Admin)
+**Activity log** lists who did what and when: vehicles added, edited or deleted, sales, service job changes and user changes. Use the menu to show only one kind of activity.
+
+### API documentation
+Open `/api/docs` (for example http://localhost:3000/api/docs) for interactive documentation of every endpoint. Sign in through `POST /api/auth/login`, click **Authorize**, paste the token and try requests directly.
+
+### Running with Docker
+With Docker installed, `JWT_SECRET=$(openssl rand -hex 32) docker compose up --build` starts PostgreSQL and DataPulse together at http://localhost:3000. Create the first admin with `docker compose exec app npm run setup:admin`.

@@ -18,6 +18,7 @@ const REQUIRED_SCHEMA: Array<[string, string, string]> = [
   ['api_credentials', 'token_hash', '001_analytics_auth.sql'],
   ['nifi_request_logs', 'outcome', '001_analytics_auth.sql'],
   ['app_users', 'name', '002_user_signup.sql'],
+  ['audit_log', 'action', '003_audit_log.sql'],
 ]
 
 // Startup diagnostics: reports database reachability and missing migrations

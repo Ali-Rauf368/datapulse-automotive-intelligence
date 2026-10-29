@@ -83,6 +83,38 @@ export type NifiLog = {
   created_at: string
 }
 
+export type AppUser = {
+  id: Id
+  email: string
+  name: string
+  role: Role
+  active: boolean
+  created_at: string
+}
+
+export type AuditEntry = {
+  id: Id
+  actor_email: string | null
+  actor_kind: 'user' | 'machine' | 'system'
+  action: string
+  entity: 'vehicle' | 'sale' | 'service_job' | 'user'
+  entity_id: Id | null
+  summary: string
+  created_at: string
+}
+
+export type InsightsRange = '30' | '90' | '365' | 'all'
+
+export type Insights = {
+  range: InsightsRange
+  revenue: number
+  sales: number
+  averageDaysInStock: number | null
+  averageServiceHours: number | null
+  monthly: Array<{ month: string; sales: number; revenue: number }>
+  topMakes: Array<{ make: string; sales: number; revenue: number }>
+}
+
 export type CheckState = 'checking' | 'ok' | 'down' | 'unknown'
 
 export type Health = {

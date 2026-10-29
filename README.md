@@ -7,11 +7,15 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 ![React](https://img.shields.io/badge/React-19-61dafb)
 ![Express](https://img.shields.io/badge/Express-5-000000)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169e1)
-![Tests](https://img.shields.io/badge/tests-97%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/tests-108%20passing-2ea44f)
+![Docker](https://img.shields.io/badge/docker-compose-2496ed)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6ba539)
 
 **Live demo:** https://datapulse-automotive.onrender.com (free hosting; the first visit can take up to a minute while the server wakes up)
 
 ![DataPulse dashboard](docs/images/dashboard.png)
+
+![Business insights](docs/images/insights.png)
 
 ## Features
 
@@ -26,16 +30,23 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 - Vehicle status always matches its history, and the API rejects edits that would contradict it
 - Sales and service history with CSV export
 
-**Analytics**
+**Analytics and insights**
 - Live KPIs: vehicles, active, sold, in service
 - Seven-day revenue chart with total and average sale price; service jobs by status
+- Business insights for 30 days, 90 days, 12 months or all time: revenue by month, top makes, average days in stock and average service turnaround
 - Data-quality check that flags records whose status disagrees with their history
+
+**Administration**
+- User management: change roles and deactivate or reactivate accounts; admins cannot change their own account and the last active admin is always kept
+- Activity log: every sale, service update, vehicle change and role change is recorded with who did it and when, in the same transaction as the change
 
 **Security and operations**
 - Email/password sign-up (always *Viewer*), bcrypt hashing, 8-hour JWT sessions re-validated on every request
 - Roles: Viewer (read), Operator (sales, service, inventory), Admin (plus delete and ingestion logs)
 - Rate limiting on sign-in and sign-up, security headers, JSON errors without stack traces
 - Live API and database health with response time
+- Interactive OpenAPI 3.1 documentation (Swagger UI) at `/api/docs`
+- Docker image and Compose file for a one-command local stack
 
 **Apache NiFi integration**
 - NiFi's InvokeHTTP processor posts vehicles to `POST /api/vehicles` with a machine credential
@@ -60,8 +71,9 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, Recharts, lucide icons |
 | Backend | Node.js 24, Express 5, TypeScript (strict), JWT, bcrypt |
 | Database | PostgreSQL 16 with SQL migrations |
-| Testing | Vitest + Supertest (97 tests), disposable PostgreSQL per run |
-| Delivery | GitHub Actions CI, Render Blueprint deployment |
+| Testing | Vitest + Supertest (108 tests), disposable PostgreSQL per run |
+| API docs | OpenAPI 3.1, Swagger UI |
+| Delivery | Docker, GitHub Actions CI, Render Blueprint deployment |
 
 ### Project structure
 
@@ -72,10 +84,11 @@ src/                     React dashboard
   lib/                   API client, formatting, CSV export
 server/src/
   app.ts                 Middleware and route wiring
-  routes/                auth, health, vehicles, sales, service, analytics
-  lib/                   Transactions, vehicle status rules, rate limiting
+  routes/                auth, health, vehicles, sales, service, analytics, users, docs
+  lib/                   Transactions, audit log, vehicle status rules, rate limiting
+  openapi.ts             OpenAPI 3.1 description
   auth/                  JWT sessions, roles, machine credentials
-  migrations/            SQL schema (000–002)
+  migrations/            SQL schema (000–003)
   scripts/               Admin, roles, demo data, migrations, NiFi credential
   __tests__/             API, auth, workflow and security tests
 render.yaml              One-click Render deployment
@@ -101,6 +114,15 @@ Run the API and the dashboard in two terminals:
 npm run server:dev                  # http://localhost:3000
 npm run dev -- --host 127.0.0.1     # http://127.0.0.1:5173
 ```
+
+### With Docker
+
+```bash
+JWT_SECRET=$(openssl rand -hex 32) docker compose up --build
+docker compose exec app npm run setup:admin   # first administrator
+```
+
+The app is then at http://localhost:3000 and the API documentation at http://localhost:3000/api/docs.
 
 ## Scripts
 
@@ -134,13 +156,18 @@ Errors are always JSON (`{"error": "..."}`). "Any credential" means a signed-in 
 | `POST /api/sales` | Admin, operator | Record a sale |
 | `POST /api/service`, `PATCH /api/service/:id` | Admin, operator | Open or update a service job |
 | `GET /api/analytics/sales`, `/service` | Any credential | Analytics |
+| `GET /api/analytics/insights?range=` | Any credential | Monthly revenue, top makes, stock and service times |
+| `GET /api/users`, `PATCH /api/users/:id` | Admin | List users, change role or access |
+| `GET /api/audit?entity=&limit=` | Admin | Activity log |
 | `GET /api/operations/nifi-logs` | Admin | Recent ingestion outcomes |
+| `GET /api/docs` | Public | Interactive API documentation |
 
 ## Engineering notes
 
 - **Consistency under concurrency:** sales and service writes lock the vehicle row inside a transaction, so two simultaneous requests cannot sell the same car twice.
 - **Status follows history:** a vehicle's status is derived from its sales and service records, and both the UI and the API enforce it.
 - **Safe tests:** the suite refuses any database whose name does not end in `_test`, signs tokens with its own random secret and cleans up everything it creates. `test:isolated` runs it on a throwaway PostgreSQL cluster.
+- **Auditable by design:** audit entries are written inside the same transaction as the change they describe, so the log never claims a change that was rolled back.
 - **Resilient UI:** each dashboard panel loads independently, so one failing request shows a retry in that panel instead of breaking the page.
 
 ## Deployment

@@ -87,6 +87,82 @@ analyticsRouter.get('/service', async (_req, res) => {
   }
 })
 
+const RANGES: Record<string, number | null> = { '30': 30, '90': 90, '365': 365, all: null }
+
+// Business insights for a date range (?range=30|90|365|all, default 365):
+// revenue by month, best-selling makes, time in stock before sale and
+// service turnaround.
+analyticsRouter.get('/insights', async (req, res) => {
+  const rangeKey = typeof req.query.range === 'string' ? req.query.range : '365'
+
+  if (!Object.hasOwn(RANGES, rangeKey)) {
+    res.status(400).json({ error: 'range must be 30, 90, 365 or all' })
+    return
+  }
+
+  const days = RANGES[rangeKey]
+
+  try {
+    const [monthly, makes, kpis] = await Promise.all([
+      pool.query(
+        `SELECT to_char(date_trunc('month', sold_at), 'YYYY-MM') AS month,
+                COUNT(*)::int AS sales,
+                SUM(amount)::numeric(12, 2)::text AS revenue
+         FROM sales_events
+         WHERE $1::int IS NULL OR sold_at >= NOW() - make_interval(days => $1::int)
+         GROUP BY 1
+         ORDER BY 1`,
+        [days],
+      ),
+      pool.query(
+        `SELECT COALESCE(v.make, 'Deleted vehicle') AS make,
+                COUNT(*)::int AS sales,
+                SUM(s.amount)::numeric(12, 2)::text AS revenue
+         FROM sales_events s
+         LEFT JOIN vehicles v ON v.id = s.vehicle_id
+         WHERE $1::int IS NULL OR s.sold_at >= NOW() - make_interval(days => $1::int)
+         GROUP BY 1
+         ORDER BY SUM(s.amount) DESC
+         LIMIT 5`,
+        [days],
+      ),
+      pool.query(
+        `SELECT
+           (SELECT ROUND(AVG(EXTRACT(EPOCH FROM (s.sold_at - v.created_at)) / 86400)::numeric, 1)
+            FROM sales_events s JOIN vehicles v ON v.id = s.vehicle_id
+            WHERE s.sold_at >= v.created_at
+              AND ($1::int IS NULL OR s.sold_at >= NOW() - make_interval(days => $1::int)))::text
+             AS avg_days_in_stock,
+           (SELECT ROUND(AVG(EXTRACT(EPOCH FROM (completed_at - opened_at)) / 3600)::numeric, 1)
+            FROM service_events
+            WHERE status = 'completed'
+              AND ($1::int IS NULL OR completed_at >= NOW() - make_interval(days => $1::int)))::text
+             AS avg_service_hours,
+           (SELECT COALESCE(SUM(amount), 0)::numeric(12, 2)::text FROM sales_events
+            WHERE $1::int IS NULL OR sold_at >= NOW() - make_interval(days => $1::int)) AS revenue,
+           (SELECT COUNT(*)::int FROM sales_events
+            WHERE $1::int IS NULL OR sold_at >= NOW() - make_interval(days => $1::int)) AS sales`,
+        [days],
+      ),
+    ])
+
+    const k = kpis.rows[0]
+    const toNumber = (value: string | null) => (value === null ? null : Number(value))
+
+    res.json({
+      range: rangeKey,
+      revenue: Number(k.revenue),
+      sales: k.sales,
+      averageDaysInStock: toNumber(k.avg_days_in_stock),
+      averageServiceHours: toNumber(k.avg_service_hours),
+      monthly: monthly.rows.map((row) => ({ month: row.month, sales: row.sales, revenue: Number(row.revenue) })),
+      topMakes: makes.rows.map((row) => ({ make: row.make, sales: row.sales, revenue: Number(row.revenue) })),
+    })
+  } catch (error) {
+    sendError(res, error, 'Failed to fetch insights')
+  }
+})
+
 // Recent machine-ingestion outcomes; operational logs are admin-only.
 operationsRouter.get(
   '/nifi-logs',

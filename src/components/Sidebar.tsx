@@ -39,7 +39,9 @@ export function Sidebar({ user, activeSection, onNavigate, health, loading, anyP
       <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Workspace</p>
 
       <nav aria-label="Main navigation" className="space-y-1">
-        {navigation.map(({ label, icon: Icon, href }) => (
+        {navigation
+          .filter((item) => !item.adminOnly || user.role === 'admin')
+          .map(({ label, icon: Icon, href }) => (
           <a
             key={label}
             href={href}

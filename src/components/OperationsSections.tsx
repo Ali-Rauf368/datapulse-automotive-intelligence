@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Activity, Clock, LogOut, Settings, ShieldCheck, Users, Workflow } from 'lucide-react'
 import { displayNameOf, formatDateTime } from '../lib/format.ts'
 import { cardClass } from '../constants.ts'
@@ -182,7 +183,15 @@ export function IngestionPanel({
   )
 }
 
-export function AccountSections({ user, onSignOut }: { user: User; onSignOut: () => void }) {
+export function AccountSections({
+  user,
+  onSignOut,
+  children,
+}: {
+  user: User
+  onSignOut: () => void
+  children?: ReactNode
+}) {
   const displayName = displayNameOf(user)
   const description =
     user.role === 'admin'
@@ -212,6 +221,7 @@ export function AccountSections({ user, onSignOut }: { user: User; onSignOut: ()
           </span>
         </div>
         <p className="mt-4 text-sm leading-6 text-slate-500">{description}</p>
+        {children}
       </section>
 
       <section id="settings" className={`${cardClass} mt-6 scroll-mt-6`}>

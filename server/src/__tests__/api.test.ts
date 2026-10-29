@@ -133,6 +133,7 @@ describe('DataPulse API', () => {
           'DELETE FROM nifi_request_logs WHERE created_at >= $1',
           [testStartedAt],
         )
+        await pool.query('DELETE FROM audit_log WHERE created_at >= $1', [testStartedAt])
       }
     } finally {
       await pool.end()

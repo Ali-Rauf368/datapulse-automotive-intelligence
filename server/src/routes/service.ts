@@ -3,6 +3,7 @@ import { pool } from '../db.ts'
 import { authenticate, requireHuman, requireRole } from '../auth/auth.ts'
 import { HttpError, isValidId, sendError, withTransaction } from '../lib/http.ts'
 import { CLOSED_SERVICE_STATUSES, SERVICE_STATUSES } from '../lib/vehicles.ts'
+import { audit } from '../lib/audit.ts'
 
 export const serviceRouter = Router()
 
@@ -50,7 +51,7 @@ serviceRouter.post(
     try {
       const job = await withTransaction(async (client) => {
         const vehicle = await client.query(
-          'SELECT id, status FROM vehicles WHERE id = $1 FOR UPDATE',
+          'SELECT id, status, make, model FROM vehicles WHERE id = $1 FOR UPDATE',
           [vehicleId],
         )
 
@@ -69,6 +70,12 @@ serviceRouter.post(
           "UPDATE vehicles SET status = 'in_service' WHERE id = $1",
           [vehicleId],
         )
+        await audit(req, {
+          action: 'service.opened',
+          entity: 'service_job',
+          entityId: result.rows[0].id,
+          summary: `Opened service job for ${vehicle.rows[0].make} ${vehicle.rows[0].model}: ${description.slice(0, 120)}`,
+        }, client)
         return result.rows[0]
       })
 
@@ -157,6 +164,12 @@ serviceRouter.patch(
           }
         }
 
+        await audit(req, {
+          action: 'service.status_changed',
+          entity: 'service_job',
+          entityId: Number(id),
+          summary: `Service job #${id} (${current.description.slice(0, 80)}): ${current.status} -> ${status}`,
+        }, client)
         return updated.rows[0]
       })
 

@@ -10,6 +10,8 @@ import { vehiclesRouter } from './routes/vehicles.ts'
 import { salesRouter } from './routes/sales.ts'
 import { serviceRouter } from './routes/service.ts'
 import { analyticsRouter, operationsRouter } from './routes/analytics.ts'
+import { auditRouter, usersRouter } from './routes/users.ts'
+import { docsRouter } from './routes/docs.ts'
 
 export const app = express()
 
@@ -51,6 +53,9 @@ app.use('/api/sales', salesRouter)
 app.use('/api/service', serviceRouter)
 app.use('/api/analytics', analyticsRouter)
 app.use('/api/operations', operationsRouter)
+app.use('/api/users', usersRouter)
+app.use('/api/audit', auditRouter)
+app.use('/api/docs', docsRouter)
 
 // Single-service deployments (the Render blueprint sets SERVE_FRONTEND=true)
 // serve the built dashboard from dist/ on the same origin as the API.

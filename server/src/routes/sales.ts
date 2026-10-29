@@ -3,6 +3,7 @@ import { pool } from '../db.ts'
 import { authenticate, requireHuman, requireRole } from '../auth/auth.ts'
 import { HttpError, isValidId, sendError, withTransaction } from '../lib/http.ts'
 import { vehicleHistory } from '../lib/vehicles.ts'
+import { audit } from '../lib/audit.ts'
 
 export const salesRouter = Router()
 
@@ -54,7 +55,7 @@ salesRouter.post(
     try {
       const sale = await withTransaction(async (client) => {
         const vehicle = await client.query(
-          'SELECT id FROM vehicles WHERE id = $1 FOR UPDATE',
+          'SELECT id, make, model FROM vehicles WHERE id = $1 FOR UPDATE',
           [vehicleId],
         )
 
@@ -83,6 +84,13 @@ salesRouter.post(
         await client.query("UPDATE vehicles SET status = 'sold' WHERE id = $1", [
           vehicleId,
         ])
+        const { make, model } = vehicle.rows[0]
+        await audit(req, {
+          action: 'sale.recorded',
+          entity: 'sale',
+          entityId: inserted.rows[0].id,
+          summary: `Sold ${make} ${model} for EUR ${amount.toFixed(2)}`,
+        }, client)
         return inserted.rows[0]
       })
 

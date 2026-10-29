@@ -10,6 +10,8 @@ import { InventorySection } from './InventorySection.tsx'
 import { SalesServiceSection } from './SalesServiceSection.tsx'
 import { AnalyticsSection } from './AnalyticsSection.tsx'
 import { AccountSections, IngestionPanel, SystemStatusSection } from './OperationsSections.tsx'
+import { InsightsSection } from './InsightsSection.tsx'
+import { AuditLogSection, UserManagement } from './AdminSections.tsx'
 import type { User } from '../types.ts'
 
 const sectionHrefs = navigation.map((item) => item.href)
@@ -138,6 +140,8 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
 
         <AnalyticsSection sales={data.sales} service={data.service} errors={data.errors} onRetry={refreshAll} />
 
+        <InsightsSection apiGet={apiGet} refreshKey={data.lastUpdated} />
+
         <SystemStatusSection
           health={health}
           lastUpdated={data.lastUpdated}
@@ -147,7 +151,19 @@ export function Dashboard({ token, user, onUserChange, onSignOut }: Props) {
 
         {isAdmin && <IngestionPanel logs={data.nifiLogs} error={data.errors.nifi} onRetry={refreshAll} />}
 
-        <AccountSections user={user} onSignOut={() => onSignOut()} />
+        {isAdmin && <AuditLogSection apiGet={apiGet} refreshKey={data.lastUpdated} />}
+
+        <AccountSections user={user} onSignOut={() => onSignOut()}>
+          {isAdmin && (
+            <UserManagement
+              apiGet={apiGet}
+              apiFetch={data.apiFetch}
+              currentUser={user}
+              refreshKey={data.lastUpdated}
+              onChanged={reload}
+            />
+          )}
+        </AccountSections>
 
         <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
           <span>DataPulse — Automotive Intelligence Platform</span>

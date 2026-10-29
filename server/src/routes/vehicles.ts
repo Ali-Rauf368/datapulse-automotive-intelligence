@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import type { NextFunction, Request, Response } from 'express'
 import { pool } from '../db.ts'
+import { audit } from '../lib/audit.ts'
 import { authenticate, requireHuman, requireRole } from '../auth/auth.ts'
 import {
   HttpError,
@@ -217,13 +218,25 @@ vehiclesRouter.post(
     }
 
     try {
-      const result = await pool.query(
-        `INSERT INTO vehicles (vin, make, model, model_year, status)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING ${VEHICLE_COLUMNS}`,
-        [cleanVin, cleanMake, cleanModel, model_year, vehicleStatus],
-      )
-      res.status(201).json(result.rows[0])
+      const created = await withTransaction(async (client) => {
+        const result = await client.query(
+          `INSERT INTO vehicles (vin, make, model, model_year, status)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING ${VEHICLE_COLUMNS}`,
+          [cleanVin, cleanMake, cleanModel, model_year, vehicleStatus],
+        )
+        const vehicle = result.rows[0]
+        await audit(req, {
+          action: req.auth?.kind === 'machine' ? 'vehicle.ingested' : 'vehicle.created',
+          entity: 'vehicle',
+          entityId: vehicle.id,
+          summary: `Added ${cleanMake} ${cleanModel} (${cleanVin})${
+            req.auth?.kind === 'machine' ? ` via machine credential #${req.auth.id}` : ''
+          }`,
+        }, client)
+        return vehicle
+      })
+      res.status(201).json(created)
     } catch (error) {
       if (isUniqueViolation(error)) {
         res.status(409).json({ error: 'A vehicle with this VIN already exists' })
@@ -340,7 +353,7 @@ vehiclesRouter.patch(
     try {
       const updated = await withTransaction(async (client) => {
         const current = await client.query(
-          'SELECT status FROM vehicles WHERE id = $1 FOR UPDATE',
+          'SELECT status, make, model FROM vehicles WHERE id = $1 FOR UPDATE',
           [vehicleId],
         )
 
@@ -363,6 +376,12 @@ vehiclesRouter.patch(
            RETURNING ${VEHICLE_COLUMNS}`,
           values,
         )
+        await audit(req, {
+          action: 'vehicle.updated',
+          entity: 'vehicle',
+          entityId: vehicleId,
+          summary: `Edited ${current.rows[0].make} ${current.rows[0].model}: ${suppliedFields.join(', ')}`,
+        }, client)
         return result.rows[0]
       })
 
@@ -419,7 +438,14 @@ vehiclesRouter.delete(
           `DELETE FROM vehicles WHERE id = $1 RETURNING ${VEHICLE_COLUMNS}`,
           [Number(id)],
         )
-        return result.rows[0]
+        const removed = result.rows[0]
+        await audit(req, {
+          action: 'vehicle.deleted',
+          entity: 'vehicle',
+          entityId: removed.id,
+          summary: `Deleted ${removed.make} ${removed.model} (${removed.vin})`,
+        }, client)
+        return removed
       })
 
       res.json({ message: 'Vehicle deleted successfully', vehicle: deleted })
