@@ -7,7 +7,8 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 ![React](https://img.shields.io/badge/React-19-61dafb)
 ![Express](https://img.shields.io/badge/Express-5-000000)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169e1)
-![Tests](https://img.shields.io/badge/tests-115%20passing-2ea44f)
+![Tests](https://img.shields.io/badge/API%20tests-115%20passing-2ea44f)
+![E2E](https://img.shields.io/badge/browser%20tests-Playwright-2ead33)
 ![Docker](https://img.shields.io/badge/docker-compose-2496ed)
 ![OpenAPI](https://img.shields.io/badge/OpenAPI-3.1-6ba539)
 
@@ -81,7 +82,7 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 | Frontend | React 19, TypeScript, Vite, Tailwind CSS, Recharts, lucide icons |
 | Backend | Node.js 24, Express 5, TypeScript (strict), JWT, bcrypt |
 | Database | PostgreSQL 16 with SQL migrations |
-| Testing | Vitest + Supertest (115 tests), disposable PostgreSQL per run |
+| Testing | Vitest + Supertest (115 API tests), Playwright browser tests, disposable PostgreSQL per run |
 | API docs | OpenAPI 3.1, Swagger UI |
 | Delivery | Docker, GitHub Actions CI, Render Blueprint deployment |
 
@@ -144,6 +145,7 @@ The app is then at http://localhost:3000 and the API documentation at http://loc
 | `npm run lint` / `npm run typecheck` | ESLint / TypeScript |
 | `npm run test:isolated` | All tests on a temporary PostgreSQL (no setup, never touches your data) |
 | `npm test` | Tests against an existing `*_test` database |
+| `npm run test:e2e:isolated` | Browser tests in Chromium on a temporary PostgreSQL |
 | `npm run db:migrate` | Apply migrations (safe to re-run) |
 | `npm run setup:admin` | Create the first administrator |
 | `npm run setup:role -- <email> <role>` | Change an account's role |
@@ -177,8 +179,12 @@ Errors are always JSON (`{"error": "..."}`). "Any credential" means a signed-in 
 
 ## Engineering notes
 
+The full reasoning, with alternatives and trade-offs, is in [ARCHITECTURE.md](ARCHITECTURE.md).
+
+
 - **Consistency under concurrency:** sales and service writes lock the vehicle row inside a transaction, so two simultaneous requests cannot sell the same car twice.
 - **Status follows history:** a vehicle's status is derived from its sales and service records, and both the UI and the API enforce it.
+- **Tested like a user:** Playwright drives the real dashboard in Chromium, including two users in separate browsers where one sells a car and the other's dashboard updates by itself. These run in CI on every push.
 - **Safe tests:** the suite refuses any database whose name does not end in `_test`, signs tokens with its own random secret and cleans up everything it creates. `test:isolated` runs it on a throwaway PostgreSQL cluster.
 - **Real-time without polling:** changes are queued during the request and broadcast over Server-Sent Events only after a successful response, i.e. after commit. A single instance fans out in memory; scaling out would move the channel to PostgreSQL LISTEN/NOTIFY.
 - **Traceable:** a request ID ties a user's error message to exactly one structured log line.
@@ -191,6 +197,7 @@ Errors are always JSON (`{"error": "..."}`). "Any credential" means a signed-in 
 
 ## Documentation
 
+- [Architecture and design decisions](ARCHITECTURE.md)
 - [User guide](docs/user-guide.md)
 - [Deployment](docs/deployment.md)
 - [NiFi backup and restore](docs/nifi-backup-restore.md)

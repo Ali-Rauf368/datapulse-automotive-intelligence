@@ -110,24 +110,32 @@ async function main(): Promise<number> {
 
     console.log(`Disposable PostgreSQL ready on 127.0.0.1:${port}; running tests…\n`)
 
-    const vitest = spawnSync(
-      path.join(root, 'node_modules/.bin/vitest'),
-      ['run', ...process.argv.slice(2)],
+    // --e2e runs the Playwright browser suite (which starts the API itself and
+    // reads DB_*); otherwise the Vitest API suite (which reads TEST_DB_*).
+    const [first, ...rest] = process.argv.slice(2)
+    const e2e = first === '--e2e'
+    const runner = spawnSync(
+      path.join(root, 'node_modules/.bin', e2e ? 'playwright' : 'vitest'),
+      e2e ? ['test', ...rest] : ['run', ...process.argv.slice(2)],
       {
         cwd: root,
         stdio: 'inherit',
         env: {
           ...process.env,
-          TEST_DB_HOST: '127.0.0.1',
-          TEST_DB_PORT: String(port),
-          TEST_DB_NAME: database,
-          TEST_DB_USER: user,
-          TEST_DB_PASSWORD: password,
+          ...(e2e
+            ? { DB_HOST: '127.0.0.1', DB_PORT: String(port), DB_NAME: database, DB_USER: user, DB_PASSWORD: password }
+            : {
+                TEST_DB_HOST: '127.0.0.1',
+                TEST_DB_PORT: String(port),
+                TEST_DB_NAME: database,
+                TEST_DB_USER: user,
+                TEST_DB_PASSWORD: password,
+              }),
         },
       },
     )
 
-    return vitest.status ?? 1
+    return runner.status ?? 1
   } finally {
     if (started) {
       spawnSync(path.join(binDir, 'pg_ctl'), ['-D', dataDir, '-m', 'fast', 'stop'], {

@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:isolated": "tsx server/src/scripts/test-isolated.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:isolated": "tsx server/src/scripts/test-isolated.ts --e2e",
     "setup:admin": "tsx server/src/scripts/create-admin.ts",
     "setup:nifi-credential": "tsx server/src/scripts/create-nifi-credential.ts",
     "setup:role": "tsx server/src/scripts/set-user-role.ts",
@@ -36,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/jsonwebtoken": "^9.0.10",
