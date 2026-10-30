@@ -184,6 +184,25 @@ export const openApiDocument = {
         },
       },
     },
+    '/api/vehicles/import': {
+      post: {
+        tags: ['Vehicles'],
+        summary: 'Import up to 500 vehicles (admin, operator)',
+        description: 'Each row is validated on its own; existing VINs are skipped. Valid rows are added in one transaction.',
+        security: secured,
+        requestBody: {
+          required: true,
+          content: json({ type: 'object', required: ['vehicles'], properties: { vehicles: { type: 'array', maxItems: 500, items: ref('NewVehicle') } } }),
+        },
+        responses: {
+          200: {
+            description: 'Per-row report: counts of created, duplicates and invalid, plus results[{row, vin, status, error?}]',
+          },
+          400: error('No rows or more than 500'),
+          ...standard,
+        },
+      },
+    },
     '/api/vehicles/stats': {
       get: { tags: ['Vehicles'], summary: 'Inventory KPIs', security: secured, responses: { 200: { description: 'Counts by status' }, ...standard } },
     },
@@ -272,6 +291,7 @@ export const openApiDocument = {
       get: {
         tags: ['Analytics'],
         summary: 'Revenue by month, top makes, days in stock, service turnaround',
+        description: 'Also returns the equal-length previous period, the percentage change in revenue and sales, and plain-language highlights.',
         security: secured,
         parameters: [{ name: 'range', in: 'query', schema: { type: 'string', enum: ['30', '90', '365', 'all'], default: '365' } }],
         responses: { 200: { description: 'Insights' }, ...standard },

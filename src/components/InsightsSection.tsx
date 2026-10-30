@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Clock, Euro, Receipt, TrendingUp, Wrench } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Clock, Euro, Receipt, Sparkles, TrendingUp, Wrench } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { useResource } from '../hooks/useResource.ts'
 import { formatCompactMoney, formatMoney, plural } from '../lib/format.ts'
@@ -31,8 +31,8 @@ export function InsightsSection({ apiGet, refreshKey }: Props) {
   )
 
   const tiles = [
-    { label: 'Revenue', value: data ? formatMoney(data.revenue) : '…', icon: Euro },
-    { label: 'Vehicles sold', value: data ? String(data.sales) : '…', icon: Receipt },
+    { label: 'Revenue', value: data ? formatMoney(data.revenue) : '…', icon: Euro, change: data?.change.revenue },
+    { label: 'Vehicles sold', value: data ? String(data.sales) : '…', icon: Receipt, change: data?.change.sales },
     {
       label: 'Avg. days in stock',
       value: data ? (data.averageDaysInStock === null ? '—' : `${data.averageDaysInStock} days`) : '…',
@@ -78,16 +78,47 @@ export function InsightsSection({ apiGet, refreshKey }: Props) {
       ) : (
         <div className={loading && data ? 'opacity-60 transition-opacity' : ''}>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {tiles.map(({ label, value, icon: Icon }) => (
-              <div key={label} className="rounded-xl border border-slate-200 p-4">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-slate-500">{label}</p>
-                  <Icon size={16} className="text-slate-400" />
+            {tiles.map((tile) => {
+              const Icon = tile.icon
+              const change = 'change' in tile ? tile.change : undefined
+              return (
+                <div key={tile.label} className="rounded-xl border border-slate-200 p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs text-slate-500">{tile.label}</p>
+                    <Icon size={16} className="text-slate-400" />
+                  </div>
+                  <p className="mt-2 text-xl font-bold tracking-tight">{tile.value}</p>
+                  {typeof change === 'number' && (
+                    <p
+                      className={`mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                        change >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                      }`}
+                      title="Compared with the previous period of the same length"
+                    >
+                      {change >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                      {Math.abs(change)}% vs previous
+                    </p>
+                  )}
                 </div>
-                <p className="mt-2 text-xl font-bold tracking-tight">{value}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
+
+          {data && data.highlights.length > 0 && (
+            <div className="mt-5 rounded-xl border border-cyan-200 bg-cyan-50 p-4">
+              <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-cyan-900">
+                <Sparkles size={16} /> Highlights
+              </p>
+              <ul className="space-y-1.5 text-sm text-slate-700">
+                {data.highlights.map((line) => (
+                  <li key={line} className="flex gap-2">
+                    <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500" />
+                    {line}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {data && data.sales === 0 ? (
             <div className="mt-6">

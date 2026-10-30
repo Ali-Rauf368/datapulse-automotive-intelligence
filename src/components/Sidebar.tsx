@@ -1,4 +1,5 @@
-import { Activity, LogOut, Moon, Search, Sun } from 'lucide-react'
+import { useState } from 'react'
+import { Activity, LogOut, Menu, Moon, Search, Sun, X } from 'lucide-react'
 import { navigation } from '../constants.ts'
 import { displayNameOf } from '../lib/format.ts'
 import type { Health, User } from '../types.ts'
@@ -30,6 +31,7 @@ export function Sidebar({
   onOpenPalette,
   onSignOut,
 }: Props) {
+  const [menuOpen, setMenuOpen] = useState(false)
   const displayName = displayNameOf(user)
   const status =
     health.api === 'down'
@@ -41,16 +43,29 @@ export function Sidebar({
           : { dot: 'bg-emerald-400', label: 'Connected' }
 
   return (
-    <aside className="bg-slate-950 p-6 text-white md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto">
-      <div className="mb-10 flex items-center gap-3">
+    <aside className="sticky top-0 z-30 bg-slate-950 px-5 py-4 text-white md:h-screen md:w-64 md:shrink-0 md:overflow-y-auto md:p-6">
+      <div className="flex items-center gap-3 md:mb-10">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-400 text-slate-950">
           <Activity size={23} />
         </div>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold tracking-tight">DataPulse</h1>
           <p className="text-xs text-slate-400">Automotive Intelligence Platform</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-expanded={menuOpen}
+          aria-controls="sidebar-menu"
+          aria-label={menuOpen ? 'Close menu' : 'Open menu'}
+          className="rounded-lg p-2 text-slate-300 hover:bg-slate-800 md:hidden"
+        >
+          {menuOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
       </div>
+
+      {/* On phones the menu folds away behind the button above. */}
+      <div id="sidebar-menu" className={`${menuOpen ? 'mt-5 block' : 'hidden'} md:mt-0 md:block`}>
 
       <button
         type="button"
@@ -71,7 +86,10 @@ export function Sidebar({
           <a
             key={label}
             href={href}
-            onClick={() => onNavigate(href)}
+            onClick={() => {
+              onNavigate(href)
+              setMenuOpen(false)
+            }}
             aria-current={activeSection === href ? 'location' : undefined}
             className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors ${
               activeSection === href
@@ -121,6 +139,7 @@ export function Sidebar({
             {dark ? <Sun size={16} /> : <Moon size={16} />}
           </button>
         </div>
+      </div>
       </div>
     </aside>
   )

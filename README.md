@@ -27,6 +27,7 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 ## Features
 
 **Experience**
+- Split-screen sign-in page and a phone-friendly layout with a fold-away menu
 - Personal overview with greeting, revenue, vehicle count and open service jobs
 - Light and dark themes, remembered per browser
 - Command palette (Ctrl/Cmd + K): jump to any section, open any vehicle's history or run an action from the keyboard
@@ -38,6 +39,7 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 **Inventory**
 - Search by VIN, make or model; filter by status; sortable columns; pagination
 - Add and edit vehicles with VIN validation (17 characters, no I/O/Q)
+- CSV import of up to 500 vehicles with a row-by-row report (invalid rows and existing VINs are listed, the rest are added in one transaction)
 - CSV export of the current view (UTF-8, spreadsheet-safe)
 - Vehicle history: click any vehicle for a timeline of when it was added, edited, serviced and sold, and by whom
 
@@ -170,13 +172,14 @@ Errors are always JSON (`{"error": "..."}`). "Any credential" means a signed-in 
 | `GET /api/auth/me` | Signed-in user | Current profile |
 | `GET /api/vehicles`, `/stats`, `/:id` | Any credential | List (`search`, `status`), KPIs, one vehicle |
 | `POST /api/vehicles` | Admin, operator, NiFi | Add a vehicle |
+| `POST /api/vehicles/import` | Admin, operator | Import up to 500 vehicles with a per-row report |
 | `PATCH /api/vehicles/:id` | Admin, operator | Edit a vehicle |
 | `DELETE /api/vehicles/:id` | Admin | Delete a vehicle without history |
 | `GET /api/sales`, `/api/service` | Any credential | Sales and service history |
 | `POST /api/sales` | Admin, operator | Record a sale |
 | `POST /api/service`, `PATCH /api/service/:id` | Admin, operator | Open or update a service job |
 | `GET /api/analytics/sales`, `/service` | Any credential | Analytics |
-| `GET /api/analytics/insights?range=` | Any credential | Monthly revenue, top makes, stock and service times |
+| `GET /api/analytics/insights?range=` | Any credential | Monthly revenue, top makes, stock and service times, change vs previous period, highlights |
 | `GET /api/users`, `PATCH /api/users/:id` | Admin | List users, change role or access |
 | `GET /api/audit?entity=&limit=` | Admin | Activity log |
 | `GET /api/operations/nifi-logs` | Admin | Recent ingestion outcomes |

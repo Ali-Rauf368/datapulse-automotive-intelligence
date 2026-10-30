@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react'
 import { SessionExpiredError, errorMessage, readJson } from '../lib/api.ts'
@@ -20,6 +21,7 @@ import { downloadCsv } from '../lib/csv.ts'
 import { sameId } from '../lib/format.ts'
 import { cardClass, inputClass, labelClass, secondaryButtonClass, statusLabels, statusStyles } from '../constants.ts'
 import { PanelError } from './ui.tsx'
+import { ImportPanel } from './ImportPanel.tsx'
 import type { ApiFetch } from '../hooks/useDashboardData.ts'
 import type { Id, Vehicle, VehicleStats } from '../types.ts'
 
@@ -84,6 +86,7 @@ export function InventorySection({
   const [sort, setSort] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'id', direction: 'asc' })
   const [page, setPage] = useState(1)
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [editing, setEditing] = useState<Vehicle | null>(null)
   const [form, setForm] = useState<VehicleForm>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
@@ -279,6 +282,18 @@ export function InventorySection({
               <Plus size={16} /> Add vehicle
             </button>
           )}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                setShowImport((open) => !open)
+                setShowForm(false)
+              }}
+              className={secondaryButtonClass}
+            >
+              <Upload size={15} /> Import CSV
+            </button>
+          )}
           <button
             type="button"
             onClick={exportCsv}
@@ -324,6 +339,10 @@ export function InventorySection({
           <option value="in_service">In service</option>
         </select>
       </div>
+
+      {showImport && canEdit && (
+        <ImportPanel apiFetch={apiFetch} onClose={() => setShowImport(false)} onImported={reload} />
+      )}
 
       {showForm && canEdit && (
         <form onSubmit={handleSave} className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4 md:p-5">

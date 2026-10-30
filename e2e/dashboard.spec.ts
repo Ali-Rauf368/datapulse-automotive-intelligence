@@ -119,3 +119,46 @@ test('live updates: one user sells, another user’s dashboard updates by itself
   await adminContext.close()
   await operatorContext.close()
 })
+
+test.describe('Advanced features', () => {
+  test('a CSV of vehicles is imported with a row-by-row report', async ({ page }) => {
+    await signIn(page, ADMIN.email)
+    const good = newVin()
+    const csv = [
+      'VIN,Make,Model,Model year',
+      `${good},Kia,"EV9, GT-Line",2025`,
+      `${good},Kia,EV9,2025`,
+      'BAD-VIN,Fiat,500,2021',
+    ].join('\r\n')
+
+    await page.getByRole('button', { name: 'Import CSV' }).click()
+    await page.getByLabel('Vehicle CSV file').setInputFiles({ name: 'stock.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
+
+    const report = page.getByRole('status').filter({ hasText: 'imported' })
+    await expect(report).toContainText('1 imported')
+    await expect(report).toContainText('1 already present')
+    await expect(report).toContainText('1 invalid')
+    await expect(report).toContainText('VIN must contain 17 valid characters')
+
+    await page.getByLabel('Search vehicles').fill(good)
+    await expect(page.locator('#inventory tbody tr').filter({ hasText: 'Kia EV9, GT-Line' })).toHaveCount(1)
+  })
+
+  test('insights compare periods and explain the numbers', async ({ page }) => {
+    await signIn(page, ADMIN.email)
+    const insights = page.locator('#insights')
+    await expect(insights.getByText('Highlights')).toBeVisible()
+    await expect(insights).toContainText(/ready to sell and \d+ service jobs? (is|are) open right now/)
+  })
+
+  test('on a phone the menu folds away behind a button', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await signIn(page, ADMIN.email)
+    const menu = page.locator('#sidebar-menu')
+    await expect(menu).toBeHidden()
+    await page.getByRole('button', { name: 'Open menu' }).click()
+    await expect(menu).toBeVisible()
+    await menu.getByRole('link', { name: 'Insights' }).click()
+    await expect(menu).toBeHidden()
+  })
+})

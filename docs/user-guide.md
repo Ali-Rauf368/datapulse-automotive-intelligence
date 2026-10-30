@@ -240,6 +240,14 @@ The project is on GitHub at https://github.com/Ali-Rauf368/datapulse-automotive-
 ### Business insights (all roles)
 In **Insights**, choose **30 days**, **90 days**, **12 months** or **All time** to see total revenue, vehicles sold, the average number of days a vehicle was in stock before it sold, the average service turnaround in hours, revenue by month and the top five makes by revenue.
 
+Revenue and Vehicles sold show how they changed against the previous period of the same length (for example the previous 30 days). The **Highlights** box sums up the period in plain sentences: revenue, the best-selling make, how fast vehicles sell and service jobs close, and what is ready to sell right now.
+
+### Importing vehicles from a spreadsheet (Operator, Admin)
+In **Inventory**, click **Import CSV**. Click **Download template** for a ready file, or use your own CSV with the columns VIN, Make, Model and Model year (Excel exports with commas or semicolons both work). Drop the file on the box or choose it. Up to 500 vehicles are checked one by one: you see how many were imported, how many were already in the system, and a table of rows with problems and the reason, so you can fix them and import again.
+
+### On a phone
+On a narrow screen the side menu folds into the top bar. Tap the menu button to open it; choosing a section closes it again.
+
 ### Managing users (Admin)
 In **Users & roles → Manage users**, change anyone's role with the role menu, or click **Deactivate** to block an account immediately (**Reactivate** restores it). You cannot change your own account, and DataPulse always keeps at least one active administrator.
 

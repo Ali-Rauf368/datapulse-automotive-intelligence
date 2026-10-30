@@ -109,6 +109,9 @@ export type Insights = {
   range: InsightsRange
   revenue: number
   sales: number
+  previous: { revenue: number; sales: number } | null
+  change: { revenue: number | null; sales: number | null }
+  highlights: string[]
   averageDaysInStock: number | null
   averageServiceHours: number | null
   monthly: Array<{ month: string; sales: number; revenue: number }>
