@@ -2,10 +2,13 @@
 // dashboard has something to show. Insert-only and idempotent: vehicles are
 // matched by VIN, so existing records are never changed, and history rows are
 // tagged source = 'demo-seed'. Times are relative to when the script runs.
+// It also fills the Activity log (actor "demo-seed") and the Data ingestion
+// panel (flow "vehicle-ingestion (demo)") with sample entries, once.
 //
 //   npm run seed:demo               add the demo data (skips what exists)
 //   npm run seed:demo -- --remove   delete exactly what this script added
 import 'dotenv/config'
+import type { PoolClient } from 'pg'
 import { pool } from '../db.ts'
 
 const SOURCE = 'demo-seed'
@@ -105,6 +108,78 @@ function statusFor(vehicle: DemoVehicle): 'active' | 'sold' | 'in_service' {
 
 const hoursAgo = (days: number) => Math.round(days * 24)
 const vins = demoVehicles.map(buildVin)
+const DEMO_FLOW = 'vehicle-ingestion (demo)'
+
+// Sample NiFi outcomes over the last week: hours ago, HTTP status, message.
+const demoIngestion: Array<[number, number, string]> = [
+  [2, 201, 'Vehicle ingestion request accepted'],
+  [5, 201, 'Vehicle ingestion request accepted'],
+  [9, 409, 'Vehicle ingestion request rejected'],
+  [20, 201, 'Vehicle ingestion request accepted'],
+  [26, 201, 'Vehicle ingestion request accepted'],
+  [31, 400, 'Vehicle ingestion request rejected'],
+  [49, 201, 'Vehicle ingestion request accepted'],
+  [52, 201, 'Vehicle ingestion request accepted'],
+  [75, 201, 'Vehicle ingestion request accepted'],
+  [98, 201, 'Vehicle ingestion request accepted'],
+  [122, 201, 'Vehicle ingestion request accepted'],
+  [146, 201, 'Vehicle ingestion request accepted'],
+]
+
+type Client = PoolClient
+
+// Activity entries for the demo vehicles' history, written once.
+async function seedActivity(client: Client): Promise<number> {
+  const done = await client.query(
+    `SELECT 1 FROM audit_log WHERE actor_email = $1 LIMIT 1`,
+    [SOURCE],
+  )
+  if (done.rowCount) return 0
+
+  const insert = (sql: string) =>
+    client.query(
+      `INSERT INTO audit_log (actor_email, actor_kind, action, entity, entity_id, summary, created_at)
+       ${sql}`,
+      [SOURCE, vins],
+    )
+
+  const statements = [
+    `SELECT $1::text, 'system', 'vehicle.created', 'vehicle', v.id,
+                   'Added ' || v.make || ' ' || v.model || ' (' || v.vin || ')', v.created_at
+            FROM vehicles v WHERE v.vin = ANY($2::text[])`,
+    `SELECT $1::text, 'system', 'sale.recorded', 'sale', s.id,
+                   'Sold ' || v.make || ' ' || v.model || ' for EUR ' || to_char(s.amount, 'FM999999990.00'), s.sold_at
+            FROM sales_events s JOIN vehicles v ON v.id = s.vehicle_id
+            WHERE v.vin = ANY($2::text[]) AND s.source = $1::text`,
+    `SELECT $1::text, 'system', 'service.opened', 'service_job', j.id,
+                   'Opened service job for ' || v.make || ' ' || v.model || ': ' || j.description, j.opened_at
+            FROM service_events j JOIN vehicles v ON v.id = j.vehicle_id
+            WHERE v.vin = ANY($2::text[]) AND j.source = $1::text`,
+    `SELECT $1::text, 'system', 'service.status_changed', 'service_job', j.id,
+                   'Service job #' || j.id || ' (' || j.description || '): open -> ' || j.status,
+                   COALESCE(j.completed_at, j.opened_at + interval '2 hours')
+            FROM service_events j JOIN vehicles v ON v.id = j.vehicle_id
+            WHERE v.vin = ANY($2::text[]) AND j.source = $1::text AND j.status <> 'open'`,
+  ]
+
+  let added = 0
+  for (const sql of statements) added += (await insert(sql)).rowCount ?? 0
+  return added
+}
+
+async function seedIngestion(client: Client): Promise<number> {
+  const done = await client.query('SELECT 1 FROM nifi_request_logs WHERE flow_name = $1 LIMIT 1', [DEMO_FLOW])
+  if (done.rowCount) return 0
+
+  for (const [hours, status, message] of demoIngestion) {
+    await client.query(
+      `INSERT INTO nifi_request_logs (flow_name, outcome, http_status, message, created_at)
+       VALUES ($1, $2, $3, $4, NOW() - make_interval(hours => $5))`,
+      [DEMO_FLOW, status < 400 ? 'success' : 'failure', status, message, hours],
+    )
+  }
+  return demoIngestion.length
+}
 
 async function seed(): Promise<void> {
   const client = await pool.connect()
@@ -168,12 +243,20 @@ async function seed(): Promise<void> {
       }
     }
 
+    const activity = await seedActivity(client)
+    const ingestion = await seedIngestion(client)
+
     await client.query('COMMIT')
 
     console.log(
       vehicles === 0
-        ? 'Demo data is already present; nothing was added.'
+        ? 'Demo vehicles are already present.'
         : `Added ${vehicles} vehicles, ${sales} sales and ${jobs} service jobs (tagged "${SOURCE}").`,
+    )
+    console.log(
+      activity + ingestion === 0
+        ? 'Demo activity and ingestion entries are already present.'
+        : `Added ${activity} activity entries and ${ingestion} ingestion entries.`,
     )
   } catch (error) {
     await client.query('ROLLBACK').catch(() => {})
@@ -195,6 +278,8 @@ async function remove(): Promise<void> {
     )
     const ids = seeded.rows.map((row) => row.id)
 
+    const activity = await client.query('DELETE FROM audit_log WHERE actor_email = $1', [SOURCE])
+    const ingestion = await client.query('DELETE FROM nifi_request_logs WHERE flow_name = $1', [DEMO_FLOW])
     const sales = await client.query(
       'DELETE FROM sales_events WHERE vehicle_id = ANY($1::bigint[]) AND source = $2',
       [ids, SOURCE],
@@ -217,7 +302,8 @@ async function remove(): Promise<void> {
 
     const kept = ids.length - (vehicles.rowCount ?? 0)
     console.log(
-      `Removed ${vehicles.rowCount} vehicles, ${sales.rowCount} sales and ${jobs.rowCount} service jobs.` +
+      `Removed ${vehicles.rowCount} vehicles, ${sales.rowCount} sales, ${jobs.rowCount} service jobs, ` +
+        `${activity.rowCount} activity entries and ${ingestion.rowCount} ingestion entries.` +
         (kept > 0 ? ` Kept ${kept} demo vehicles that have other history.` : ''),
     )
   } catch (error) {

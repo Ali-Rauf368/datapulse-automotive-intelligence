@@ -29,6 +29,7 @@ A full-stack platform for automotive dealerships: vehicle inventory, sales and w
 **Experience**
 - Split-screen sign-in page and a phone-friendly layout with a fold-away menu
 - Personal overview with greeting, revenue, vehicle count and open service jobs
+- `npm run seed:demo` also fills the Activity log and the Data ingestion panel with labelled sample entries (actor "demo-seed", flow "vehicle-ingestion (demo)"); `-- --remove` deletes them again
 - Light and dark themes, remembered per browser
 - Command palette (Ctrl/Cmd + K): jump to any section, open any vehicle's history or run an action from the keyboard
 
