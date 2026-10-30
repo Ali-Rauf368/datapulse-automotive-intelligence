@@ -13,6 +13,41 @@ export const VEHICLE_COLUMNS =
 // 17 characters; I, O and Q are never used in VINs.
 export const VIN_PATTERN = /^[A-HJ-NPR-Z0-9]{17}$/
 
+export type NewVehicle = { vin: string; make: string; model: string; model_year: number }
+
+// Validates and normalises the fields of a new vehicle. Returns the cleaned
+// vehicle, or the first problem found.
+export function validateNewVehicle(
+  input: Record<string, unknown>,
+): { vehicle: NewVehicle } | { error: string } {
+  const { vin, make, model, model_year: modelYear } = input
+
+  if (
+    typeof vin !== 'string' ||
+    typeof make !== 'string' ||
+    typeof model !== 'string' ||
+    !Number.isInteger(modelYear)
+  ) {
+    return { error: 'VIN, make, model and a valid model_year are required' }
+  }
+
+  const vehicle = {
+    vin: vin.trim().toUpperCase(),
+    make: make.trim(),
+    model: model.trim(),
+    model_year: modelYear as number,
+  }
+
+  if (!VIN_PATTERN.test(vehicle.vin)) return { error: 'VIN must contain 17 valid characters' }
+  if (!vehicle.make || vehicle.make.length > 100) return { error: 'Make must be between 1 and 100 characters' }
+  if (!vehicle.model || vehicle.model.length > 100) return { error: 'Model must be between 1 and 100 characters' }
+  if (vehicle.model_year < 1886 || vehicle.model_year > 2100) {
+    return { error: 'Model year must be between 1886 and 2100' }
+  }
+
+  return { vehicle }
+}
+
 export function isVehicleStatus(value: unknown): value is VehicleStatus {
   return (
     typeof value === 'string' &&

@@ -146,17 +146,62 @@ analyticsRouter.get('/insights', async (req, res) => {
       ),
     ])
 
+    // The equally long window just before this one, for comparison.
+    const [previous, current] = await Promise.all([
+      days === null
+        ? Promise.resolve(null)
+        : pool.query(
+            `SELECT COALESCE(SUM(amount), 0)::numeric(12, 2)::text AS revenue, COUNT(*)::int AS sales
+             FROM sales_events
+             WHERE sold_at >= NOW() - make_interval(days => $1::int * 2)
+               AND sold_at < NOW() - make_interval(days => $1::int)`,
+            [days],
+          ),
+      pool.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE status = 'active')::int AS ready,
+           (SELECT COUNT(*)::int FROM service_events WHERE status IN ('open', 'in_progress')) AS open_jobs
+         FROM vehicles`,
+      ),
+    ])
+
     const k = kpis.rows[0]
     const toNumber = (value: string | null) => (value === null ? null : Number(value))
+    const revenue = Number(k.revenue)
+    const prior = previous ? { revenue: Number(previous.rows[0].revenue), sales: previous.rows[0].sales } : null
+    const change = (now: number, before: number | undefined) =>
+      before === undefined || before === 0 ? null : Math.round(((now - before) / before) * 1000) / 10
+    const revenueChange = change(revenue, prior?.revenue)
+    const topMakes = makes.rows.map((row) => ({ make: row.make, sales: row.sales, revenue: Number(row.revenue) }))
+    const euros = (value: number) =>
+      new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(value)
+    const period = days === null ? 'all time' : days === 365 ? 'the last 12 months' : `the last ${days} days`
+
+    // Plain-language summary of the numbers above, for the dashboard.
+    const highlights = [
+      k.sales === 0
+        ? `No vehicles were sold in ${period}.`
+        : revenueChange === null
+          ? `${euros(revenue)} revenue from ${k.sales} ${k.sales === 1 ? 'sale' : 'sales'} in ${period}.`
+          : `Revenue is ${revenueChange >= 0 ? 'up' : 'down'} ${Math.abs(revenueChange)}% on the previous period (${euros(revenue)} vs ${euros(prior!.revenue)}).`,
+      topMakes[0] &&
+        `${topMakes[0].make} leads with ${euros(topMakes[0].revenue)} from ${topMakes[0].sales} ${topMakes[0].sales === 1 ? 'sale' : 'sales'}.`,
+      k.avg_days_in_stock !== null && `Vehicles sell after ${Number(k.avg_days_in_stock)} days in stock on average.`,
+      k.avg_service_hours !== null && `Service jobs are completed in ${Number(k.avg_service_hours)} hours on average.`,
+      `${current.rows[0].ready} ${current.rows[0].ready === 1 ? 'vehicle is' : 'vehicles are'} ready to sell and ${current.rows[0].open_jobs} service ${current.rows[0].open_jobs === 1 ? 'job is' : 'jobs are'} open right now.`,
+    ].filter((line): line is string => Boolean(line))
 
     res.json({
       range: rangeKey,
-      revenue: Number(k.revenue),
+      revenue,
       sales: k.sales,
+      previous: prior,
+      change: { revenue: revenueChange, sales: change(k.sales, prior?.sales) },
       averageDaysInStock: toNumber(k.avg_days_in_stock),
       averageServiceHours: toNumber(k.avg_service_hours),
       monthly: monthly.rows.map((row) => ({ month: row.month, sales: row.sales, revenue: Number(row.revenue) })),
-      topMakes: makes.rows.map((row) => ({ make: row.make, sales: row.sales, revenue: Number(row.revenue) })),
+      topMakes,
+      highlights,
     })
   } catch (error) {
     sendError(res, error, 'Failed to fetch insights')

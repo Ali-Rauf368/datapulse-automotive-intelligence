@@ -15,6 +15,7 @@ import {
   VEHICLE_COLUMNS,
   VIN_PATTERN,
   isVehicleStatus,
+  validateNewVehicle,
   statusConflict,
   vehicleHistory,
 } from '../lib/vehicles.ts'
@@ -253,44 +254,16 @@ vehiclesRouter.post(
   requireRole('admin', 'operator'),
   logMachineIngestion,
   async (req, res) => {
-    const { vin, make, model, model_year, status } = req.body ?? {}
+    const validated = validateNewVehicle(req.body ?? {})
 
-    if (
-      typeof vin !== 'string' ||
-      typeof make !== 'string' ||
-      typeof model !== 'string' ||
-      !Number.isInteger(model_year)
-    ) {
-      res.status(400).json({
-        error: 'VIN, make, model and a valid model_year are required',
-      })
+    if ('error' in validated) {
+      res.status(400).json({ error: validated.error })
       return
     }
 
-    const cleanVin = vin.trim().toUpperCase()
-    const cleanMake = make.trim()
-    const cleanModel = model.trim()
+    const { vin: cleanVin, make: cleanMake, model: cleanModel, model_year } = validated.vehicle
+    const status = req.body.status
     const vehicleStatus = status === undefined ? 'active' : status
-
-    if (!VIN_PATTERN.test(cleanVin)) {
-      res.status(400).json({ error: 'VIN must contain 17 valid characters' })
-      return
-    }
-
-    if (!cleanMake || cleanMake.length > 100) {
-      res.status(400).json({ error: 'Make must be between 1 and 100 characters' })
-      return
-    }
-
-    if (!cleanModel || cleanModel.length > 100) {
-      res.status(400).json({ error: 'Model must be between 1 and 100 characters' })
-      return
-    }
-
-    if (model_year < 1886 || model_year > 2100) {
-      res.status(400).json({ error: 'Model year must be between 1886 and 2100' })
-      return
-    }
 
     if (!isVehicleStatus(vehicleStatus)) {
       res.status(400).json({ error: 'Status must be active, sold or in_service' })
@@ -333,6 +306,89 @@ vehiclesRouter.post(
         return
       }
       sendError(res, error, 'Failed to create vehicle')
+    }
+  },
+)
+
+const IMPORT_LIMIT = 500
+
+// Bulk import (admin/operator users): validates every row independently and
+// reports what happened to each one. Valid rows are inserted in a single
+// transaction; existing VINs, and repeats within the file, are skipped.
+vehiclesRouter.post(
+  '/import',
+  requireHuman,
+  requireRole('admin', 'operator'),
+  async (req, res) => {
+    const rows = req.body?.vehicles
+
+    if (!Array.isArray(rows) || rows.length === 0 || rows.length > IMPORT_LIMIT) {
+      res.status(400).json({ error: `Send "vehicles" as a list of 1 to ${IMPORT_LIMIT} rows` })
+      return
+    }
+
+    type Result = { row: number; vin: string | null; status: 'created' | 'duplicate' | 'invalid'; error?: string }
+    const results: Result[] = []
+    const seen = new Set<string>()
+
+    try {
+      await withTransaction(async (client) => {
+        for (const [index, raw] of rows.entries()) {
+          const row = index + 1
+          const input = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+          const validated = validateNewVehicle({
+            ...input,
+            // Spreadsheet years often arrive as text.
+            model_year: typeof input.model_year === 'string' ? Number(input.model_year) : input.model_year,
+          })
+
+          if ('error' in validated) {
+            results.push({ row, vin: typeof input.vin === 'string' ? input.vin : null, status: 'invalid', error: validated.error })
+            continue
+          }
+
+          const { vin, make, model, model_year: year } = validated.vehicle
+
+          if (seen.has(vin)) {
+            results.push({ row, vin, status: 'duplicate', error: 'Repeated earlier in this file' })
+            continue
+          }
+          seen.add(vin)
+
+          const inserted = await client.query(
+            `INSERT INTO vehicles (vin, make, model, model_year, status)
+             VALUES ($1, $2, $3, $4, 'active')
+             ON CONFLICT (vin) DO NOTHING
+             RETURNING id`,
+            [vin, make, model, year],
+          )
+
+          results.push(
+            inserted.rowCount
+              ? { row, vin, status: 'created' }
+              : { row, vin, status: 'duplicate', error: 'A vehicle with this VIN already exists' },
+          )
+        }
+
+        const created = results.filter((r) => r.status === 'created').length
+        if (created > 0) {
+          await audit(req, {
+            action: 'vehicle.imported',
+            entity: 'vehicle',
+            summary: `Imported ${created} ${created === 1 ? 'vehicle' : 'vehicles'} from a file (${rows.length - created} skipped)`,
+          }, client)
+        }
+      })
+
+      const count = (status: Result['status']) => results.filter((r) => r.status === status).length
+      res.status(200).json({
+        created: count('created'),
+        duplicates: count('duplicate'),
+        invalid: count('invalid'),
+        results,
+      })
+    } catch (error) {
+      sendError(res, error, 'Failed to import vehicles')
     }
   },
 )
